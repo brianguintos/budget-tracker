@@ -1,5 +1,6 @@
 """FastAPI app. TODO(Session 2-3): add transaction + category routers."""
 from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy import extract
 from sqlalchemy.orm import Session
 
 from . import models, schemas
@@ -19,6 +20,22 @@ def create_transaction(payload: schemas.TransactionCreate, db: Session = Depends
     db.commit()
     db.refresh(transaction)
     return transaction
+
+@app.get("/transactions/{transaction_id}", response_model=schemas.TransactionOut) #function to get a transaction by id, declares response model
+def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
+    transaction = db.query(models.Transaction).filter(models.Transaction.id == transaction_id).first()
+    if transaction is None:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return transaction
+
+@app.get("/transactions", response_model=list[schemas.TransactionOut])
+def list_transactions(year: int | None = None, month: int | None = None, db: Session = Depends(get_db)):
+    query = db.query(models.Transaction)
+    if year is not None:
+        query = query.filter(extract("year", models.Transaction.date) == year)
+    if month is not None:
+        query = query.filter(extract("month", models.Transaction.date) == month)
+    return query.order_by(models.Transaction.date).all()
 
 # TODO(Session 2): transactions router
 #   POST   /transactions
